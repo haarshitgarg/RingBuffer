@@ -1,0 +1,9 @@
+# Claude Files
+.claude/*
+CLAUDE.md
+
+# Cache Files
+.cache/
+
+# Build files
+build/*
