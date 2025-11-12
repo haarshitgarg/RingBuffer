@@ -25,6 +25,8 @@ set(SOURCES
 # Header files
 set(HEADERS
     include/RingBuffer.hpp
+    include/bench.hpp
+    include/rigtorp.hpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
