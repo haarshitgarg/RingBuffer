@@ -16,7 +16,8 @@ private:
   T *buff_;
   size_t cap_;
 
-  atomic<size_t> readIdx_, writeIdx_;
+  alignas(64) atomic<size_t> readIdx_;
+  alignas(64) atomic<size_t> writeIdx_;
 
 public:
   using value_type = T;
