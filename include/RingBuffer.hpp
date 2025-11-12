@@ -29,21 +29,27 @@ public:
   ~RingBuffer() { delete buff_; }
 
   bool pop(T &val) {
-    if (empty()) {
+    size_t writeIdx = writeIdx_.load(memory_order_acquire);
+    size_t readIdx = readIdx_.load(memory_order_relaxed);
+
+    if (writeIdx == readIdx)
       return false;
-    }
-    val = buff_[readIdx_ % cap_];
-    ++readIdx_;
+
+    val = buff_[readIdx % cap_];
+    readIdx_.store(readIdx + 1, memory_order_release);
 
     return true;
   }
 
   bool push(T val) {
-    if (full()) {
+    size_t writeIdx = writeIdx_.load(memory_order_relaxed);
+    size_t readIdx = readIdx_.load(memory_order_acquire);
+
+    if (writeIdx - readIdx == cap_)
       return false;
-    }
-    buff_[writeIdx_ % cap_] = val;
-    ++writeIdx_;
+
+    buff_[writeIdx % cap_] = val;
+    writeIdx_.store(writeIdx + 1, memory_order_release);
 
     return true;
   }
