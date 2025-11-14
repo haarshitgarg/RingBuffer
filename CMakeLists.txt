@@ -26,13 +26,29 @@ set(SOURCES
 set(HEADERS
     include/RingBuffer.hpp
     include/bench.hpp
+)
+
+# Rigtorp source
+set(RIGSOURCES
+    src/rig_main.cpp
+)
+
+# Rigtorp header
+set(RIGHEADER
     include/rigtorp.hpp
+    include/bench.hpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 add_executable(${PROJECT_NAME}.tsan ${SOURCES} ${HEADERS})
 target_compile_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
 target_link_libraries(${PROJECT_NAME}.tsan PRIVATE pthread tsan)
+
+## Seperating the rigtorp from RingBuffer for seperate pref calculations
+add_executable(rigtorp ${RIGSOURCES} ${RIGHEADER})
+add_executable(rigtorp.tsan ${RIGSOURCES} ${RIGHEADER})
+target_compile_options(rigtorp.tsan PRIVATE -fsanitize=thread)
+target_link_libraries(rigtorp.tsan PRIVATE pthread tsan)
 
 ## Create library
 #add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
