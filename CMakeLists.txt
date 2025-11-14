@@ -30,6 +30,9 @@ set(HEADERS
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+add_executable(${PROJECT_NAME}.tsan ${SOURCES} ${HEADERS})
+target_compile_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
+target_link_libraries(${PROJECT_NAME}.tsan PRIVATE pthread tsan)
 
 ## Create library
 #add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
