@@ -15,6 +15,8 @@ template <typename T> class RingBuffer {
 private:
   T *buff_;
   size_t cap_;
+  size_t cachedReadIdx_;
+  size_t cachedWriteIdx_;
 
   alignas(64) atomic<size_t> readIdx_;
   alignas(64) atomic<size_t> writeIdx_;
@@ -43,17 +45,22 @@ public:
     buff_ = new T[cap_];
     readIdx_ = 0;
     writeIdx_ = 0;
+    cachedReadIdx_ = 0;
+    cachedWriteIdx_ = 0;
     mask_ = cap_ - 1;
   }
 
   ~RingBuffer() { delete buff_; }
 
   bool pop(T &val) {
-    size_t writeIdx = writeIdx_.load(memory_order_acquire);
     size_t readIdx = readIdx_.load(memory_order_relaxed);
 
-    if (writeIdx == readIdx)
-      return false;
+    if (cachedWriteIdx_ == readIdx) {
+      cachedWriteIdx_ = writeIdx_.load(memory_order_acquire);
+      if (cachedWriteIdx_ == readIdx) {
+        return false;
+      }
+    }
 
     val = buff_[readIdx & mask_];
     readIdx_.store(readIdx + 1, memory_order_release);
@@ -63,10 +70,13 @@ public:
 
   bool push(T val) {
     size_t writeIdx = writeIdx_.load(memory_order_relaxed);
-    size_t readIdx = readIdx_.load(memory_order_acquire);
 
-    if (writeIdx - readIdx == cap_)
-      return false;
+    if (writeIdx - cachedReadIdx_ == cap_) {
+      cachedReadIdx_ = readIdx_.load(memory_order_acquire);
+      if (writeIdx - cachedReadIdx_ == cap_) {
+        return false;
+      }
+    }
 
     buff_[writeIdx & mask_] = val;
     writeIdx_.store(writeIdx + 1, memory_order_release);
