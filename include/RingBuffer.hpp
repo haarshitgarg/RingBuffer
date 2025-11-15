@@ -15,12 +15,15 @@ template <typename T> class RingBuffer {
 private:
   T *buff_;
   size_t cap_;
-  size_t cachedReadIdx_;
-  size_t cachedWriteIdx_;
 
   alignas(64) atomic<size_t> readIdx_;
+  char pad1[64];
+
   alignas(64) atomic<size_t> writeIdx_;
+  char pad2[64];
+
   alignas(64) size_t mask_;
+  char pad3[64];
 
   static size_t getPowerOfTwo(size_t capacity) {
     if (capacity <= 2) {
@@ -45,19 +48,18 @@ public:
     buff_ = new T[cap_];
     readIdx_ = 0;
     writeIdx_ = 0;
-    cachedReadIdx_ = 0;
-    cachedWriteIdx_ = 0;
     mask_ = cap_ - 1;
   }
 
-  ~RingBuffer() { delete buff_; }
+  ~RingBuffer() { delete[] buff_; }
 
   bool pop(T &val) {
+    static thread_local size_t cachedWriteIdx = 0;
     size_t readIdx = readIdx_.load(memory_order_relaxed);
 
-    if (cachedWriteIdx_ == readIdx) {
-      cachedWriteIdx_ = writeIdx_.load(memory_order_acquire);
-      if (cachedWriteIdx_ == readIdx) {
+    if (cachedWriteIdx == readIdx) {
+      cachedWriteIdx = writeIdx_.load(memory_order_acquire);
+      if (cachedWriteIdx == readIdx) {
         return false;
       }
     }
@@ -69,11 +71,12 @@ public:
   }
 
   bool push(T val) {
+    static thread_local size_t cachedReadIdx = 0;
     size_t writeIdx = writeIdx_.load(memory_order_relaxed);
 
-    if (writeIdx - cachedReadIdx_ == cap_) {
-      cachedReadIdx_ = readIdx_.load(memory_order_acquire);
-      if (writeIdx - cachedReadIdx_ == cap_) {
+    if (writeIdx - cachedReadIdx == cap_) {
+      cachedReadIdx = readIdx_.load(memory_order_acquire);
+      if (writeIdx - cachedReadIdx == cap_) {
         return false;
       }
     }
@@ -84,15 +87,20 @@ public:
     return true;
   }
 
+  // No one is actually using it. Just keeping it as a part of history
   bool empty() {
-    if (readIdx_ == writeIdx_) {
+    if (readIdx_.load(memory_order_acquire) ==
+        writeIdx_.load(memory_order_acquire)) {
       return true;
     }
     return false;
   }
 
+  // No one is actually using it. Just keeping it as a part of history
   bool full() {
-    if (writeIdx_ - readIdx_ == cap_) {
+    if (writeIdx_.load(memory_order_acquire) -
+            readIdx_.load(memory_order_acquire) ==
+        cap_) {
       return true;
     }
     return false;
