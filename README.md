@@ -101,50 +101,6 @@ The **Instructions Per Cycle** jump from 1.04 → 2.47 reveals why throughput sc
 2. **Better branch prediction** - 5.48% miss rate → 0.99% miss rate means the CPU almost never stalls for branch misprediction flushes
 3. **Reduced memory stalls** - No HITM traffic waiting for coherency
 
-**CPU Execution Efficiency:**
-- Main: 19.7B cycles ÷ 14.4B instructions = 0.96 insn/cycle (severely limited by branch mispredicts and cache)
-- Analysis: 7.7B cycles ÷ 13.5B instructions = 1.75 insn/cycle (better, but shows the CPU executing more work per clock)
-
-#### Historical Performance (Earlier Commits)
-
-### Commit: `db9eedf324f004b436355d49f10aef6d1793dc9a`
-
-Comparing `RingBuffer` (SPSC lock-free implementation with cached indices) against `rigtorp` reference implementation from CppCon 2023 by Charles Frasch.
-
-> **Note:** Results are ballpark figures from multiple runs with minimal fluctuation.
-
-#### CPU 0, 1 (Shared Cache, High Performance)
-
-| Implementation | Throughput (ops/s) |
-|---|---|
-| RingBuffer | 22,760,155 |
-| rigtorp | 16,609,405 |
-
-#### CPU 2, 3 (Shared Cache, High Performance)
-
-| Implementation | Throughput (ops/s) |
-|---|---|
-| RingBuffer | 23,390,090 |
-| rigtorp | 16,751,176 |
-
-**Observation:** Both combinations produce nearly identical results—CPU selection is the only difference. The importance of shared cache is evident.
-
-#### CPU 4, 5 (No Shared L1/L2 Cache)
-
-| Implementation | Throughput (ops/s) |
-|---|---|
-| RingBuffer | 3,775,031 |
-| rigtorp | 3,361,023 |
-
-#### CPU 7, 8 (Mismatched Cache Hierarchy)
-
-| Implementation | Throughput (ops/s) |
-|---|---|
-| RingBuffer | 2,372,411 |
-| rigtorp | 2,522,076 |
-
-**Observation:** Performance degrades significantly when CPUs don't share caches or have mismatched cache hierarchies. Further investigation needed to understand the impact of L2 cache sharing across varying CPU performance tiers.
-
 ## Key Insights for HFT Implementation
 
 ### 1. **False Sharing is Invisible but Deadly**
@@ -161,7 +117,7 @@ The SPSC queue maintains thread-local copies of remote indices (`cachedReadIdx`,
 Using `memory_order_seq_cst` everywhere would incur **massive performance penalties** (~50-70% throughput loss).
 
 ### 4. **CPU Affinity & Cache Hierarchy are Non-Negotiable**
-- Throughput **scales 6-10x** between CPUs with shared L3 vs. separate L3
-- NUMA effects dominate microsecond-scale latency profiles
-- Always pin producer/consumer to cores sharing the L3 cache for HFT workloads
+- Throughput **scales 6-10x** between CPUs with shared cache vs. separate L1, L2
+- Always pin producer/consumer to cores sharing the cache for HFT workloads
+
 
